@@ -13,6 +13,8 @@
 
 const REVISION = "pinball-v1-mix-20261119";
 const STORAGE = "pinball-audio-qa-v21-20261109";
+const labMode = new URLSearchParams(window.location?.search).get("audio-lab") === "1";
+let labAudition = null, labMusicPaused = false, labMusicRequested = false;
 
 function cue(id, name, url, gain, maxDuration, cooldown, priority, duck) {
   return {id,name,variants:[{id,label:name,url,gain}],maxDuration,cooldown,priority,
@@ -310,7 +312,7 @@ for (const id of EVENT_IDS) {
 function clamp(value, lo, hi) { return Math.max(lo, Math.min(hi, Number(value) || 0)); }
 
 try {
-  const saved = JSON.parse(localStorage.getItem(STORAGE) || "null");
+  const saved = labMode ? null : JSON.parse(localStorage.getItem(STORAGE) || "null");
   if (saved && typeof saved === "object") {
     if (typeof saved.enabled === "boolean") enabled = saved.enabled;
     if (saved.muted) for (const id of EVENT_IDS) if (typeof saved.muted[id] === "boolean") muted[id] = saved.muted[id];
@@ -336,6 +338,7 @@ try {
 } catch (e) {}
 
 function persist() {
+  if (labMode) return;
   try {
     const selected = {};
     for (const id of EVENT_IDS) selected[id] = muted[id] ? NONE_ID : chosen[id];
@@ -491,10 +494,9 @@ function setVolume(value) {
   if (bus && ctx) bus.gain.setTargetAtTime(volume * .86, ctx.currentTime, .02);
   else if (bus) bus.gain.value = volume * .86;
   if(volume<=0) stopAll();
-  for(const el of [bgmEls?.intro,bgmEls?.loop]) if(el){
-    el.muted=masterMuted || volume<=0;
-    if(el===bgmActiveElement()) rampBgm(el,bgmTargetVolume(),100);
-  }
+  refreshBgmMute();
+  const music=bgmActiveElement();
+  if(music) rampBgm(music,bgmTargetVolume(),100);
 }
 
 function setGroupVolume(eventId, value) {
@@ -536,7 +538,7 @@ function play(kind, master) {
   const event = EVENTS[eventId];
   if (!event) return false;
   if (typeof master === "number") setVolume(master);
-  if (!enabled || masterMuted) return true;
+  if (!enabled || masterMuted || labAudition) return true;
   if (muted[eventId]) { suppressed[eventId] = (suppressed[eventId] || 0) + 1; return true; }
   if (volume <= 0 || volumes[eventId] <= 0) { suppressed[eventId] = (suppressed[eventId] || 0) + 1; return true; }
   const variant = currentVariant(eventId);
@@ -628,6 +630,7 @@ function tone(context, freq, seconds, amp, type, at) {
 }
 
 function previewLegacy() {
+  if (labMode) return false;
   const context = setup();
   if (!context || !enabled) return false;
   if (context.state !== "running") return false;
@@ -657,6 +660,7 @@ function stopPreviewVoices(eventId = null) {
 
 /* 试听：单次或连播约 3 秒。试听不改变游戏内的实际路由。 */
 function preview(eventId, loop = false) {
+  if (labMode) return auditionOriginal(eventId);
   const event = EVENTS[eventId];
   if (!event) throw new Error("未知事件：" + eventId);
   if (!enabled) throw new Error("音效总开关已关闭");
@@ -684,8 +688,53 @@ function preview(eventId, loop = false) {
 }
 
 function stopAll() {
+  finishAudition();
   clearPreviewTimers();
   stop();
+}
+
+function finishAudition(item = labAudition) {
+  if (!item || labAudition !== item) return;
+  labAudition = null;
+  try { item.source?.stop(); } catch {}
+  item.done?.();
+  refreshBgmMute();
+}
+
+async function auditionOriginal(eventId) {
+  const variant = currentVariant(eventId);
+  if (!variant) throw new Error("找不到此音效");
+  if (masterMuted || volume <= 0 || !enabled) throw new Error("请先开启游戏的主音量");
+  finishAudition();
+  const item = {source:null,done:null};
+  labAudition = item;
+  stop();
+  refreshBgmMute();
+  try {
+    const context = setup(false);
+    if (!context) throw new Error("当前浏览器无法播放音频");
+    const resume = context.state === "running" ? null : context.resume();
+    const [record] = await Promise.all([load(eventId, variant.id),resume]);
+    if (labAudition !== item) return;
+    if (document.hidden || context.state !== "running") throw new Error("请点按试听以解锁音频");
+    const source = context.createBufferSource(), gain = context.createGain();
+    item.source = source;
+    source.buffer = record.buffer;
+    gain.gain.value = clamp(variant.gain * record.level * volumes[eventId], 0, .72);
+    source.connect(gain);
+    gain.connect(bus);
+    await new Promise(resolve => {
+      item.done = resolve;
+      source.onended = () => {
+        source.disconnect();
+        gain.disconnect();
+        finishAudition(item);
+      };
+      source.start(context.currentTime);
+    });
+  } finally {
+    finishAudition(item);
+  }
 }
 
 function prime() {
@@ -727,13 +776,20 @@ let bgmDuckTimer = null;
 let bgmPlays = 0, bgmErrors = 0, bgmLastError = null;
 
 const mediaGains = new WeakMap();
+const labMediaGates = new WeakMap();
 function connectMedia(el) {
   if (!ctx?.createMediaElementSource) return;
   try {
     const gain = ctx.createGain();
     gain.gain.value = 0;
     ctx.createMediaElementSource(el).connect(gain);
-    gain.connect(limiter);
+    if (labMode) {
+      const gate = ctx.createGain();
+      gate.gain.value = isBgmMuted() ? 0 : 1;
+      gain.connect(gate);
+      gate.connect(limiter);
+      labMediaGates.set(el,gate);
+    } else gain.connect(limiter);
     mediaGains.set(el,gain);
     el.volume = 1;
   } catch {}
@@ -744,13 +800,23 @@ function writeMediaLevel(el,level) {
   if(gain) gain.gain.value=level;
   else el.volume=level;
 }
+function isBgmMuted() {
+  return masterMuted || volume<=0 || (labMode && (!bgmEnabled || labMusicPaused || !!labAudition));
+}
+function refreshBgmMute() {
+  const muted = isBgmMuted();
+  for (const el of [bgmEls?.intro,bgmEls?.loop]) if (el) {
+    el.muted = muted;
+    const gate = labMediaGates.get(el);
+    if (gate) gate.gain.value = muted ? 0 : 1;
+  }
+}
 function setMasterMuted(muted) {
   masterMuted = !!muted;
   if(masterMuted) stopAll();
-  for(const el of [bgmEls?.intro,bgmEls?.loop]) if(el){
-    el.muted=masterMuted || volume<=0;
-    if(el===bgmActiveElement()) rampBgm(el,bgmTargetVolume(),80);
-  }
+  refreshBgmMute();
+  const music=bgmActiveElement();
+  if(music) rampBgm(music,bgmTargetVolume(),80);
 }
 function bgmTargetVolume() {
   return masterMuted?0:clamp(volume * bgmVolume * (BGM.trim || 1) * bgmDuck, 0, 1);
@@ -846,7 +912,12 @@ function bgmActiveElement() {
 }
 
 function startBgm() {
-  if (!enabled || !bgmEnabled || bgmVolume <= 0) return false;
+  if (labMode) labMusicRequested = true;
+  return playBgm();
+}
+
+function playBgm() {
+  if (!enabled || !bgmEnabled || bgmVolume <= 0 || labMusicPaused) return false;
   /* 先把音频上下文恢复起来，再启动媒体元素：
      同一手势里如果媒体元素先播，Chrome 有可能把手势消耗掉，
      导致上下文一直挂起 —— 那会让所有 WebAudio 音效静音而音乐照常响。 */
@@ -862,7 +933,7 @@ function startBgm() {
   if (!els.intro) {
     bgmPhase = "loop";
     try { els.loop.currentTime = 0; writeMediaLevel(els.loop,0); } catch (e) {}
-    els.loop.muted=masterMuted || volume<=0;
+    els.loop.muted=isBgmMuted();
     const pl = els.loop.play();
     if (pl && pl.catch) pl.catch(e => {
       if(e?.name!=="AbortError"){bgmErrors++;bgmLastError=String(e?.message||e);bgmPhase="idle";}
@@ -883,6 +954,7 @@ function startBgm() {
 }
 
 function stopBgm(fadeMs) {
+  if (labMode) labMusicRequested = false;
   const els = bgmEls;
   const ms = Math.max(0, fadeMs === undefined ? BGM.fadeOut : Number(fadeMs) || 0);
   const active = bgmActiveElement();
@@ -929,7 +1001,7 @@ function pauseBgm() {
 }
 
 function resumeBgm() {
-  if (!enabled || !bgmEnabled || bgmVolume <= 0) return false;
+  if (!enabled || !bgmEnabled || bgmVolume <= 0 || labMusicPaused) return false;
   const el = bgmActiveElement();
   if (!el) return false;
   setup();
@@ -952,6 +1024,45 @@ function setBgmEnabled(on) {
   persist();
   if (!bgmEnabled) stopBgm(400);
   return true;
+}
+
+function setLabBgmEnabled(on) {
+  bgmEnabled = on;
+  refreshBgmMute();
+  if (!on) pauseBgm();
+  else if (labMusicRequested && !labMusicPaused) {
+    if (bgmActiveElement()) resumeBgm();
+    else playBgm();
+  }
+}
+
+function playLabBgm() {
+  labMusicPaused = false;
+  bgmEnabled = true;
+  refreshBgmMute();
+  return bgmActiveElement() ? resumeBgm() : playBgm();
+}
+
+function pauseLabBgm() {
+  labMusicPaused = true;
+  refreshBgmMute();
+  pauseBgm();
+}
+
+function resetLab() {
+  finishAudition();
+  for (const id of EVENT_IDS) {
+    muted[id] = false;
+    chosen[id] = EVENTS[id].defaultVariant || EVENTS[id].variants[0].id;
+    volumes[id] = 1;
+    delete last[id];
+  }
+  enabled = true;
+  setBgmVolume(BGM.defaultVolume);
+  labMusicPaused = false;
+  if (!labMusicRequested) stopBgm(0);
+  setLabBgmEnabled(true);
+  loadAll();
 }
 
 function getBgmState() {
@@ -1086,6 +1197,14 @@ window.PinballGameAudio = {
   startBgm, stopBgm, pauseBgm, resumeBgm, duckBgm,
   setBgmVolume, setBgmEnabled, getBgmState,
   describe, getState, exportConfig,
-  hasBuffer: (eventId) => !!buffers.get(bufferKey(eventId, chosen[eventId]))
+  hasBuffer: (eventId) => !!buffers.get(bufferKey(eventId, chosen[eventId])),
+  ...(labMode && {lab: Object.freeze({
+    auditionOriginal,
+    stopAudition: () => finishAudition(),
+    setBgmEnabled: setLabBgmEnabled,
+    playBgm: playLabBgm,
+    pauseBgm: pauseLabBgm,
+    reset: resetLab
+  })})
 };
 })();

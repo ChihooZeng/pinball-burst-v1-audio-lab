@@ -148,7 +148,16 @@
   <script data-optional src="./ad-bridge.js?v=1.0.0-rc.1" defer></script>
   <script src="./juice-fx.js?v=1.0.0-rc.1" defer></script>
   <script src="./builds.js?v=1.0.0-rc.1" defer></script>
-  <script data-optional src="./sound-pack.js?v=1.0.0-rc.1" defer></script>
-  <script src="./game.js?v=1.0.0-rc.2" defer></script>
+  <script data-optional src="./sound-pack.js?v=1.0.0-rc.2-audio-lab.1" defer></script>
+  <script src="./game.js?v=1.0.0-rc.2-audio-lab.1" defer></script>
+  <script>
+    if (new URLSearchParams(location.search).get("audio-lab") === "1") {
+      document.addEventListener("DOMContentLoaded", () => {
+        const script = document.createElement("script");
+        script.src = "./audio-lab.js?v=1";
+        document.body.append(script);
+      }, {once:true});
+    }
+  </script>
 </body>
 </html>

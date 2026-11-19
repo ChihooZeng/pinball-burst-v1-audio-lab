@@ -4,5 +4,7 @@
   "sourceHead": "4f2498ccbe432b84dbcbf4c18109f3056217e470",
   "source": "git commit",
   "analyticsDefault": false,
-  "adsDefault": false
+  "adsDefault": false,
+  "variant": "rc.2-audio-lab",
+  "baselineDeployment": "949994dfe05a902dc94569918e9f737d8ddf9788"
 }

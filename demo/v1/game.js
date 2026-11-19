@@ -12,7 +12,9 @@
     paused:"pause",resumed:"resume",heartbeat:"run_heartbeat"
   };
   const analyticsState=()=>({wave,seconds:Math.floor(battleTime),faction:build.seedAbility});
-  const qaMode=new URLSearchParams(location.search).get("qa")==="1";
+  const params=new URLSearchParams(location.search);
+  const audioLabMode=params.get("audio-lab")==="1";
+  const qaMode=params.get("qa")==="1"||audioLabMode;
   const version="1.0.0-rc.2";
   document.querySelector("#qaBossPreview").hidden=!qaMode;
   document.querySelector("#diagnostics").hidden=!qaMode;
@@ -27,7 +29,7 @@
   const FIRST_SKILL_KEY='pinball-overload-first-skill-v1',SIDE_KEY='pinball-overload-skill-side-v1',AUTO_KEY='pinball-overload-auto-skill-v1';
   let firstSkillUsed=false,skillSide='right',autoSkill=true;
   try{firstSkillUsed=localStorage.getItem(FIRST_SKILL_KEY)==='done';skillSide=localStorage.getItem(SIDE_KEY)==='left'?'left':'right';autoSkill=localStorage.getItem(AUTO_KEY)!=='no';}catch(e){}
-  function store(key,value){try{localStorage.setItem(key,value);}catch(e){}}
+  function store(key,value){if(!audioLabMode)try{localStorage.setItem(key,value);}catch(e){}}
   function applySkillSide(){document.querySelector('.shell').classList.toggle('skill-left',skillSide==='left');}
   function markSkillUsed(){if(firstSkillUsed)return;firstSkillUsed=true;store(FIRST_SKILL_KEY,'done');document.getElementById('skillGuide').classList.add('hidden');}
   let build,events=[],counters,arcCharge=0,lastArcRelease=-99,fanClock=0,gunFlash=0,turretRecoil=0,brickClock=0,lastShotAngle=0;
@@ -322,9 +324,9 @@
   const sound=window.PinballGameAudio;
   const volumeKey="pinball-v1-volume",muteKey="pinball-v1-muted";
   try {
-    const saved=localStorage.getItem(volumeKey);
+    const saved=audioLabMode?null:localStorage.getItem(volumeKey);
     if(saved!==null)soundVolume=clamp(Number(saved),0,1);
-    soundMuted=localStorage.getItem(muteKey)==="yes";
+    soundMuted=!audioLabMode&&localStorage.getItem(muteKey)==="yes";
   } catch {}
   function unlockSound(){sound?.prime();}
   function playSfx(kind){sound?.play(kind);}
