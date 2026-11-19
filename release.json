@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0-rc.2",
+  "entry": "demo/v1/",
+  "sourceHead": "4f2498ccbe432b84dbcbf4c18109f3056217e470",
+  "source": "git commit",
+  "analyticsDefault": false,
+  "adsDefault": false
+}
