@@ -5,13 +5,14 @@
   color: #e9f7ff;
   font: 14px/1.4 system-ui, sans-serif;
   --lab-surface: #0c1a29;
+  --lab-surface-raised: #13283a;
   --lab-border: #496377;
   --lab-muted: #b0c7d8;
   --lab-accent: #73eee1;
 }
 #audioQaPanel [hidden] { display: none; }
 #audioQaPanel button {
-  min-height: 44px;
+  min-height: 42px;
   padding: 5px 11px;
   border: 1px solid var(--lab-border);
   border-radius: 7px;
@@ -19,8 +20,10 @@
   color: #e9f7ff;
   font: inherit;
   font-weight: 650;
+  cursor: pointer;
 }
 #audioQaPanel button:hover:not(:disabled) { border-color: var(--lab-accent); }
+#audioQaPanel button:disabled { opacity: .45; cursor: not-allowed; }
 #audioQaPanel :focus-visible { outline: 2px solid var(--lab-accent); outline-offset: 2px; }
 #audioQaPanel .lab-launch, #audioQaPanel [data-lab-action="solo"] {
   background: var(--lab-accent);
@@ -29,8 +32,8 @@
 }
 #audioQaPanel .lab-launch { border-radius: 18px; padding: 7px 17px; }
 .lab-panel {
-  width: min(410px, calc(100vw - 28px));
-  max-height: min(790px, calc(100dvh - 28px));
+  width: min(500px, calc(100vw - 28px));
+  max-height: min(860px, calc(100dvh - 28px));
   display: flex;
   flex-direction: column;
   border: 1px solid var(--lab-border);
@@ -49,44 +52,138 @@
 .lab-head { border-bottom: 1px solid var(--lab-border); }
 .lab-head h2, .lab-list-head h3 { margin: 0; color: #f6fbff; }
 .lab-head h2 { font-size: 21px; }
-.lab-head span, .lab-list-head span, .lab-music small, .lab-haptics small { color: var(--lab-muted); font-size: 12px; }
+.lab-head span, .lab-list-head span, .lab-music small, .lab-haptics small {
+  color: var(--lab-muted);
+  font-size: 12px;
+}
 .lab-scroll { padding: 12px 14px; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .lab-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-.lab-music {
+.lab-mix {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 5px 8px;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 5px 12px;
   align-items: center;
   margin-top: 12px;
+  padding: 9px 10px;
+  border: 1px solid var(--lab-border);
+  border-radius: 9px;
+  background: var(--lab-surface-raised);
 }
-.lab-music label, .lab-haptics { display: flex; align-items: center; gap: 7px; min-height: 44px; }
-.lab-music small { grid-column: 1 / -1; }
-.lab-list-head { margin: 8px 0 6px; }
-.lab-list-head h3 { font-size: 14px; }
-.lab-list { display: grid; gap: 4px; }
+.lab-mix label { display: flex; justify-content: space-between; gap: 8px; }
+.lab-mix input { grid-column: 1 / -1; }
+.lab-mix output, .lab-music output, .lab-event-volume output {
+  color: var(--lab-accent);
+  font: 12px/1.3 ui-monospace, monospace;
+  text-align: right;
+}
+.lab-music {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto auto;
+  gap: 6px 8px;
+  align-items: center;
+  margin-top: 9px;
+  padding: 9px 10px;
+  border: 1px solid var(--lab-border);
+  border-radius: 9px;
+  background: var(--lab-surface-raised);
+}
+.lab-music label, .lab-haptics { display: flex; align-items: center; gap: 7px; min-height: 36px; }
+.lab-music input[type="range"] { grid-column: 1 / 3; }
+.lab-music output { grid-column: 3; }
+.lab-music small { grid-column: 1 / -1; overflow-wrap: anywhere; }
+.lab-haptics { margin: 5px 0 2px; }
+.lab-list-head { margin: 10px 0 4px; }
+.lab-list-head h3 { font-size: 15px; }
+.lab-guide { margin: 0 0 8px; color: var(--lab-muted); font-size: 12px; }
+.lab-diagnostics {
+  margin: 0 0 8px;
+  padding: 7px 9px;
+  border: 1px solid #344e61;
+  border-radius: 7px;
+  background: #091522;
+  color: var(--lab-muted);
+  font: 11px/1.45 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+.lab-list { display: grid; gap: 7px; }
 .lab-event {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 34px auto;
-  align-items: center;
   gap: 6px;
-  padding: 4px 5px 4px 0;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  padding: 8px 9px;
+  border: 1px solid var(--lab-border);
+  border-radius: 9px;
+  background: var(--lab-surface-raised);
 }
-.lab-event.is-selected { background: #173144; border-color: #40637b; }
+.lab-event.is-selected { border-color: var(--lab-accent); box-shadow: inset 3px 0 var(--lab-accent); }
+.lab-event-head {
+  display: grid;
+  grid-template-columns: 28px minmax(0,1fr) 30px auto;
+  align-items: center;
+  gap: 7px;
+}
 .lab-event-title > * { display: block; }
-.lab-event code { color: var(--lab-muted); font: 11px/1.28 ui-monospace, monospace; overflow-wrap: anywhere; }
+.lab-event-title code, .lab-event-detail {
+  color: var(--lab-muted);
+  font: 11px/1.35 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+.lab-event-variant {
+  display: grid;
+  grid-template-columns: 72px minmax(0,1fr);
+  align-items: center;
+  gap: 8px;
+  color: #dcecf6;
+  font-size: 12px;
+}
+#audioQaPanel select {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 5px 8px;
+  border: 1px solid var(--lab-border);
+  border-radius: 6px;
+  background: #091522;
+  color: #e9f7ff;
+  font: inherit;
+}
+.lab-event-detail { margin: -1px 0 0 80px; min-height: 15px; }
+.lab-event-volume {
+  display: grid;
+  grid-template-columns: 72px minmax(0,1fr) 42px;
+  align-items: center;
+  gap: 8px;
+  color: #dcecf6;
+  font-size: 12px;
+}
 #audioQaPanel input { accent-color: var(--lab-accent); min-width: 19px; height: 22px; }
-.lab-event input { width: 24px; margin: 0 auto; cursor: pointer; }
+#audioQaPanel input[type="range"] { width: 100%; min-width: 0; margin: 0; cursor: pointer; }
+.lab-event-head input { width: 24px; margin: 0 auto; cursor: pointer; }
+.lab-event-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 10px;
+  color: var(--lab-muted);
+  font: 10px/1.35 ui-monospace, monospace;
+}
+.lab-event-stats [data-lab-load] { color: #82c8b9; }
 .lab-footer { border-top: 1px solid var(--lab-border); }
-.lab-footer output { color: var(--lab-accent); min-width: 0; overflow-wrap: anywhere; }
+.lab-footer output { color: var(--lab-accent); min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
 .lab-footer button { flex: none; }
 .lab-footer a { display: inline-flex; align-items: center; min-height: 34px; color: var(--lab-muted); }
 @media (max-width: 680px) {
-  #audioQaPanel { inset: auto max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); pointer-events: none; }
+  #audioQaPanel {
+    inset: auto max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    pointer-events: none;
+  }
   #audioQaPanel > * { pointer-events: auto; }
   #audioQaPanel .lab-launch { margin-left: max(0px, calc((100% - 122px) / 2)); }
-  .lab-panel { width: 100%; max-height: min(70dvh, 630px); }
+  .lab-panel { width: 100%; max-height: min(76dvh, 700px); }
   .lab-scroll, .lab-head, .lab-footer { padding: 8px 10px; }
+  .lab-event { padding: 7px; }
+  .lab-event-detail { margin-left: 0; }
+  .lab-event-variant, .lab-event-volume { grid-template-columns: 64px minmax(0,1fr) 40px; }
+  .lab-event-variant select { grid-column: 2 / -1; }
+  .lab-event-head { grid-template-columns: 26px minmax(0,1fr) 28px auto; gap: 5px; }
   .lab-footer a { min-height: 28px; }
 }
