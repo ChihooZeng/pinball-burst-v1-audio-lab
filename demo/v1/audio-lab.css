@@ -182,8 +182,9 @@
   .lab-scroll, .lab-head, .lab-footer { padding: 8px 10px; }
   .lab-event { padding: 7px; }
   .lab-event-detail { margin-left: 0; }
-  .lab-event-variant, .lab-event-volume { grid-template-columns: 64px minmax(0,1fr) 40px; }
-  .lab-event-variant select { grid-column: 2 / -1; }
+  .lab-event-variant { grid-template-columns: 64px minmax(0,1fr); }
+  .lab-event-variant select { grid-column: auto; }
+  .lab-event-volume { grid-template-columns: 64px minmax(0,1fr) 40px; }
   .lab-event-head { grid-template-columns: 26px minmax(0,1fr) 28px auto; gap: 5px; }
   .lab-footer a { min-height: 28px; }
 }
