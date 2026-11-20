@@ -154,7 +154,7 @@
     if (new URLSearchParams(location.search).get("audio-lab") === "1") {
       document.addEventListener("DOMContentLoaded", () => {
         const script = document.createElement("script");
-        script.src = "./audio-lab.js?v=1";
+        script.src = "./audio-lab.js?v=2";
         document.body.append(script);
       }, {once:true});
     }
