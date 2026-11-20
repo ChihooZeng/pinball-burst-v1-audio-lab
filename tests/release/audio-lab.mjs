@@ -90,7 +90,11 @@ try {
   assert.equal(initial.master,.78);
   assert.equal((await bgm()).enabled,true);
   assert.ok(Object.values(initial.muted).every(v=>!v));
-  status("14 default RC.2 assets listed; stale mute, sample and BGM settings ignored");
+  assert.equal(initial.events,14);
+  assert.equal(initial.variants,23);
+  assert.equal(await page.eval("document.querySelectorAll('[data-lab-variant]').length"),14);
+  assert.equal(await page.eval("Array.from(document.querySelectorAll('[data-lab-variant]')).reduce((n,el)=>n+el.options.length,0)"),23);
+  status("14 event groups and all 23 candidate slots listed; stale mute, sample and BGM settings ignored");
   await click('[data-lab-action="open"]');
   if(screenshots) {
     mkdirSync(screenshots,{recursive:true});
@@ -106,6 +110,53 @@ try {
     await click(toggle);
   }
   status("all 14 independent switches work via panel");
+
+  const candidateAudit=await evaluate(()=> {
+    const changed=[];
+    for(const id of PinballGameAudio.EVENT_IDS) {
+      const event=PinballGameAudio.EVENTS[id];
+      const select=document.querySelector('[data-lab-variant="'+id+'"]');
+      const defaultId=event.defaultVariant||event.variants[0].id;
+      if(event.variants.length<2) continue;
+      const candidate=event.variants.find(v=>v.id!==defaultId);
+      select.value=candidate.id;
+      select.dispatchEvent(new Event("change",{bubbles:true}));
+      const active=PinballGameAudio.getState().selected[id];
+      const file=document.querySelector('[data-lab-file="'+id+'"]').textContent;
+      changed.push({id,active,file,expected:candidate.url.split("/").pop()});
+      select.value=defaultId;
+      select.dispatchEvent(new Event("change",{bubbles:true}));
+    }
+    return changed;
+  });
+  assert.equal(candidateAudit.length,4);
+  for(const item of candidateAudit) {
+    assert.equal(item.active,item.active===undefined?null:item.active,item.id);
+    assert.equal(item.file,item.expected,item.id);
+  }
+  status("all multi-candidate groups switch to another real file and restore their RC.2 default");
+
+  await evaluate(()=> {
+    const group=document.querySelector('[data-lab-volume="brick_hit"]');
+    group.value="37";group.dispatchEvent(new Event("input",{bubbles:true}));
+    const master=document.querySelector("#audioLabMasterVolume");
+    master.value="42";master.dispatchEvent(new Event("input",{bubbles:true}));
+    const bgm=document.querySelector("#audioLabBgmVolume");
+    bgm.value="34";bgm.dispatchEvent(new Event("input",{bubbles:true}));
+  });
+  assert.equal((await state()).volumes.brick_hit,.37);
+  assert.equal((await state()).master,.42);
+  assert.equal((await bgm()).volume,.34);
+  await evaluate(()=> {
+    const group=document.querySelector('[data-lab-volume="brick_hit"]');
+    group.value="100";group.dispatchEvent(new Event("input",{bubbles:true}));
+    const master=document.querySelector("#audioLabMasterVolume");
+    master.value="78";master.dispatchEvent(new Event("input",{bubbles:true}));
+    const bgm=document.querySelector("#audioLabBgmVolume");
+    bgm.value="80";bgm.dispatchEvent(new Event("input",{bubbles:true}));
+  });
+  status("master, BGM and per-event volumes adjust independently and update live");
+
   for(const id of ids) {
     const count=await page.eval("auditAudio.starts.length");
     await click(`[data-lab-preview="${id}"]`);
@@ -164,6 +215,10 @@ try {
   assert.ok(mono.hp<10&&mono.hp>0);
   await waitFor(()=>page.eval("__pinballTest.ballSnapshot()[0]?.vx>0"),"wall reflection failed");
   assert.deepEqual(Object.keys((await state()).plays),["brick_hit"]);
+  await sleep(70);
+  await page.eval("PinballGameAudio.play('brick_hit');PinballGameAudio.play('brick_hit');");
+  await waitFor(()=>page.eval("document.querySelector('[data-lab-stats=\\\"brick_hit\\\"]').textContent.includes('播放 2')&&document.querySelector('[data-lab-stats=\\\"brick_hit\\\"]').textContent.includes('冷却丢弃 1')"),"live trigger and cooldown counters did not update");
+  assert.equal((await state()).drops.brick_hit,1);
   assert.equal((await state()).selected.brick_hit,"v5-wood-thud");
   assert.equal((await bgm()).enabled,false);
   status("actual brick damage plays only V5; brick destruction and wall reflection still happen silently");
