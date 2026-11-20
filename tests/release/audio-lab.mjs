@@ -123,7 +123,7 @@ try {
       select.dispatchEvent(new Event("change",{bubbles:true}));
       const active=PinballGameAudio.getState().selected[id];
       const file=document.querySelector('[data-lab-file="'+id+'"]').textContent;
-      changed.push({id,active,file,expected:candidate.url.split("/").pop()});
+      changed.push({id,active,expectedId:candidate.id,file,expectedFile:candidate.url.split("/").pop()});
       select.value=defaultId;
       select.dispatchEvent(new Event("change",{bubbles:true}));
     }
@@ -131,8 +131,8 @@ try {
   });
   assert.equal(candidateAudit.length,4);
   for(const item of candidateAudit) {
-    assert.equal(item.active,item.active===undefined?null:item.active,item.id);
-    assert.equal(item.file,item.expected,item.id);
+    assert.equal(item.active,item.expectedId,item.id);
+    assert.equal(item.file,item.expectedFile,item.id);
   }
   status("all multi-candidate groups switch to another real file and restore their RC.2 default");
 
@@ -217,7 +217,7 @@ try {
   assert.deepEqual(Object.keys((await state()).plays),["brick_hit"]);
   await sleep(70);
   await page.eval("PinballGameAudio.play('brick_hit');PinballGameAudio.play('brick_hit');");
-  await waitFor(()=>page.eval("document.querySelector('[data-lab-stats=\\\"brick_hit\\\"]').textContent.includes('播放 2')&&document.querySelector('[data-lab-stats=\\\"brick_hit\\\"]').textContent.includes('冷却丢弃 1')"),"live trigger and cooldown counters did not update");
+  await waitFor(()=>page.eval("document.querySelector('[data-lab-stats=brick_hit]').textContent.includes('播放 2')&&document.querySelector('[data-lab-stats=brick_hit]').textContent.includes('冷却丢弃 1')"),"live trigger and cooldown counters did not update");
   assert.equal((await state()).drops.brick_hit,1);
   assert.equal((await state()).selected.brick_hit,"v5-wood-thud");
   assert.equal((await bgm()).enabled,false);
